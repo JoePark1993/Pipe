@@ -29,12 +29,26 @@ using namespace std;
 /**
  * Useful data types
  */
+ vec3 color;
 typedef mat<MGLfloat,4,4> mat4; //data structure storing a 4x4 matrix, see mat.h
 typedef mat<MGLfloat,3,3> mat3; //data structure storing a 3x3 matrix, see mat.h
 typedef vec<MGLfloat,4> vec4;   //data structure storing a 4 dimensional vector, see vec.h
 typedef vec<MGLfloat,3> vec3;   //data structure storing a 3 dimensional vector, see vec.h
 typedef vec<MGLfloat,2> vec2;   //data structure storing a 2 dimensional vector, see vec.h
 
+MGLpoly_mode MGLmode;
+
+struct Vertex {
+	vec4 position;
+	vec3 color;
+};
+
+struct Triangle {
+	Vertex A,B,C;
+};
+
+vector<Vertex> vertexList;
+vector<Triangle> triangles;
 /**
  * Standard macro to report errors
  */
@@ -62,12 +76,30 @@ void mglReadPixels(MGLsize width,
 {
 }
 
+float triArea(float fia,float fib,float fic,float fja,float fjb,float fjc) {
+	return fia*(fjb-fjc) + fja*(fic-fib) +(fib*fjc-(fjb*fic));
+};
+
+void Rasterize_Triangle(const Triangle& tri, int width, int height, MGLpixel* data) {
+	float fia,fib,fic,fja,fjb,fjc; 
+	fia = ((tri.A.position[0]+1)*width)/2 - 0.5;
+	fib = ((tri.B.position[0]+1)*width)/2 - 0.5;
+	fic = ((tri.C.position[0]+1)*width)/2 - 0.5;
+	fja = ((tri.A.position[1]+1)*width)/2 - 0.5;
+	fjb = ((tri.B.position[1]+1)*width)/2 - 0.5;
+	fjc = ((tri.C.position[1]+1)*width)/2 - 0.5;
+	
+	float Area = triArea(fia,fib,fic,fja,fjb,fjc);
+	
+	
+}
 /**
  * Start specifying the vertices for a group of primitives,
  * whose type is specified by the given mode.
  */
 void mglBegin(MGLpoly_mode mode)
 {
+	MGLmode = mode;
 }
 
 
@@ -76,6 +108,31 @@ void mglBegin(MGLpoly_mode mode)
  */
 void mglEnd()
 {
+	if(MGLmode == MGL_TRIANGLES){
+		for(int i = 0; i < ((vertexList.size()/3)*3); i+=3) {
+			Triangle t;
+			t.A = vertexList[i];
+			t.B = vertexList[i+1];
+			t.C = vertexList[i+2];
+			triangles.push_back(t);
+		} 
+		}else if (MGLmode == MGL_QUADS) {
+			for(int i = 0; i < ((vertexList.size()/4)*4); i+=4) {
+				Triangle t1;
+				Triangle t2;
+				t1.A = vertexList[i];
+				t1.B = vertexList[i+1];
+				t1.C = vertexList[i+2];
+				t2.A = vertexList[i];
+				t2.B = vertexList[i+3];
+				t2.C = vertexList[i+2];
+				triangles.push_back(t1);
+				triangles.push_back(t2);
+			}
+		
+	}
+	
+	triangles.clear();
 }
 
 /**
@@ -87,6 +144,12 @@ void mglEnd()
 void mglVertex2(MGLfloat x,
                 MGLfloat y)
 {
+	Vertex vertex;
+	vertex.position[0] = x;
+	vertex.position[1] = y;
+	vertex.position[2] = 0;
+	vertex.color = color;
+	vertexList.push_back(vertex);
 }
 
 /**
@@ -97,6 +160,13 @@ void mglVertex3(MGLfloat x,
                 MGLfloat y,
                 MGLfloat z)
 {
+	Vertex vertex;
+	vertex.position[0] = x;
+	vertex.position[1] = y;
+	vertex.position[2] = z;
+	vertex.position[3] = 1;
+	vertex.color = color;
+	vertexList.push_back(vertex);
 }
 
 /**
@@ -226,4 +296,7 @@ void mglColor(MGLfloat red,
               MGLfloat green,
               MGLfloat blue)
 {
+	color[0] = red;
+	color[1] = green;
+	color[2] = blue;
 }
