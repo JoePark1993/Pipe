@@ -36,6 +36,8 @@ typedef vec<MGLfloat,4> vec4;   //data structure storing a 4 dimensional vector,
 typedef vec<MGLfloat,3> vec3;   //data structure storing a 3 dimensional vector, see vec.h
 typedef vec<MGLfloat,2> vec2;   //data structure storing a 2 dimensional vector, see vec.h
 
+mat4 projection;
+
 MGLpoly_mode MGLmode;
 
 struct Vertex {
@@ -70,10 +72,20 @@ inline void MGL_ERROR(const char* description) {
  * with the actual pixel values that should be displayed on
  * the two-dimensional screen.
  */
+void Rasterize_Triangle(const Triangle&tri,int width, int height, MGLpixel* data);
 void mglReadPixels(MGLsize width,
                    MGLsize height,
                    MGLpixel *data)
 {
+  for(unsigned int i = 0; i < width; i++) {
+    for(unsigned int j = 0; j < height; j++) {
+      data[i+j*width] = Make_Pixel(0,0,0);
+    }
+  }
+  for(auto tri : triangles) {
+     Rasterize_Triangle(tri,width,height,data); 
+  }
+  triangles.clear();
 }
 
 float triArea(float fia,float fib,float fic,float fja,float fjb,float fjc) {
@@ -91,7 +103,18 @@ void Rasterize_Triangle(const Triangle& tri, int width, int height, MGLpixel* da
 	
 	float Area = triArea(fia,fib,fic,fja,fjb,fjc);
 	
-	
+	for(int i = 0; i < width; i++) {
+ 	  for(int j = 0; j< height; j++) {
+            float fi = ((i+1)*width)/2 -0.5;
+            float fj = ((j+1)*height)/2 - 0.5;
+            float alpha = triArea(fi,fib,fic,fj,fjb,fjc)/Area;
+	    float beta = triArea(fia,fi,fic,fja,fj,fjc)/Area;
+            float gamma = triArea(fia,fib,fi,fja,fjb,fj)/Area;
+            if(alpha >=0.0 && alpha <= 1.0 && beta >= 0.0 && beta <= 1.0 && gamma >= 0.0 && gamma <= 1) {
+              data[i+j*width] = Make_Pixel(255,255,255);
+            }
+          } 
+	}
 }
 /**
  * Start specifying the vertices for a group of primitives,
@@ -108,8 +131,10 @@ void mglBegin(MGLpoly_mode mode)
  */
 void mglEnd()
 {
+int size = ((vertexList.size()/3)*3);
+int size2 = ((vertexList.size()/4)*4);
 	if(MGLmode == MGL_TRIANGLES){
-		for(int i = 0; i < ((vertexList.size()/3)*3); i+=3) {
+		for(int i = 0; i < size; i+=3) {
 			Triangle t;
 			t.A = vertexList[i];
 			t.B = vertexList[i+1];
@@ -117,7 +142,7 @@ void mglEnd()
 			triangles.push_back(t);
 		} 
 		}else if (MGLmode == MGL_QUADS) {
-			for(int i = 0; i < ((vertexList.size()/4)*4); i+=4) {
+			for(int i = 0; i < size2; i+=4) {
 				Triangle t1;
 				Triangle t2;
 				t1.A = vertexList[i];
@@ -149,6 +174,7 @@ void mglVertex2(MGLfloat x,
 	vertex.position[1] = y;
 	vertex.position[2] = 0;
 	vertex.color = color;
+	vertex.position = projection * vertex.position;
 	vertexList.push_back(vertex);
 }
 
@@ -166,6 +192,7 @@ void mglVertex3(MGLfloat x,
 	vertex.position[2] = z;
 	vertex.position[3] = 1;
 	vertex.color = color;
+        vertex.position = projection * vertex.position;
 	vertexList.push_back(vertex);
 }
 
@@ -287,6 +314,11 @@ void mglOrtho(MGLfloat left,
               MGLfloat near,
               MGLfloat far)
 {
+  float tx = -right + left*right - left;
+  float ty = -top + bottom*top - bottom;
+  float tz = -far + near*far - near;
+  
+  projection ={{tx,ty,tz}};
 }
 
 /**
