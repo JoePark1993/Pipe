@@ -36,9 +36,13 @@ typedef vec<MGLfloat,4> vec4;   //data structure storing a 4 dimensional vector,
 typedef vec<MGLfloat,3> vec3;   //data structure storing a 3 dimensional vector, see vec.h
 typedef vec<MGLfloat,2> vec2;   //data structure storing a 2 dimensional vector, see vec.h
 
-mat4 projection;
-
+mat4 projection= {{1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1}};
+//vector<Matrix> currentMatrixMode;
+mat4 currentMatrix = {{1,0,0,0,1,0,0,0,0,1,0,0,0,0,1}};
 MGLpoly_mode MGLmode;
+//struct Matrix {
+//  
+//};
 
 struct Vertex {
 	vec4 position;
@@ -60,6 +64,36 @@ inline void MGL_ERROR(const char* description) {
 }
 
 
+float triArea(float fia,float fib,float fic,float fja,float fjb,float fjc) {
+	return fia*(fjb-fjc) + fja*(fic-fib) +((fib*fjc)-(fjb*fic));
+};
+
+
+
+void Rasterize_Triangle(const Triangle& tri, int width, int height, MGLpixel* data) {
+	float fia,fib,fic,fja,fjb,fjc; 
+	fia = ((tri.A.position[0]/tri.A.position[3]+1)*width)/2 - 0.5;
+	fib = ((tri.B.position[0]/tri.B.position[3]+1)*width)/2 - 0.5;
+	fic = ((tri.C.position[0]/tri.C.position[3]+1)*width)/2 - 0.5;
+	fja = ((tri.A.position[1]/tri.A.position[3]+1)*height)/2 - 0.5;
+	fjb = ((tri.B.position[1]/tri.B.position[3]+1)*height)/2 - 0.5;
+	fjc = ((tri.C.position[1]/tri.C.position[3]+1)*height)/2 - 0.5;
+	float Area = triArea(fia,fib,fic,fja,fjb,fjc);
+  	cout << Area << endl ;	
+	for(int i = 0; i < width; i++) {
+ 	  for(int j = 0; j< height; j++) {
+           // float fi = ((i+1)*width)/2 -0.5;
+           // float fj = ((j+1)*height)/2 - 0.5;
+            float alpha = triArea(i,fib,fic,j,fjb,fjc)/Area;
+	    float beta = triArea(fia,i,fic,fja,j,fjc)/Area;
+            float gamma = triArea(fia,fib,i,fja,fjb,j)/Area;
+            if(alpha >=0.0 && alpha <= 1.0 && beta >= 0.0 && beta <= 1.0 && gamma <= 1 && gamma >= 0) {
+              data[i+j*width] = Make_Pixel(tri.A.color[0]*255,tri.B.color[1]*255,tri.C.color[2]*255);
+            }
+          } 
+	}
+}
+
 /**
  * Read pixel data starting with the pixel at coordinates
  * (0, 0), up to (width,  height), into the array
@@ -72,7 +106,7 @@ inline void MGL_ERROR(const char* description) {
  * with the actual pixel values that should be displayed on
  * the two-dimensional screen.
  */
-void Rasterize_Triangle(const Triangle&tri,int width, int height, MGLpixel* data);
+
 void mglReadPixels(MGLsize width,
                    MGLsize height,
                    MGLpixel *data)
@@ -86,35 +120,6 @@ void mglReadPixels(MGLsize width,
      Rasterize_Triangle(tri,width,height,data); 
   }
   triangles.clear();
-}
-
-float triArea(float fia,float fib,float fic,float fja,float fjb,float fjc) {
-	return fia*(fjb-fjc) + fja*(fic-fib) +(fib*fjc-(fjb*fic));
-};
-
-void Rasterize_Triangle(const Triangle& tri, int width, int height, MGLpixel* data) {
-	float fia,fib,fic,fja,fjb,fjc; 
-	fia = ((tri.A.position[0]+1)*width)/2 - 0.5;
-	fib = ((tri.B.position[0]+1)*width)/2 - 0.5;
-	fic = ((tri.C.position[0]+1)*width)/2 - 0.5;
-	fja = ((tri.A.position[1]+1)*width)/2 - 0.5;
-	fjb = ((tri.B.position[1]+1)*width)/2 - 0.5;
-	fjc = ((tri.C.position[1]+1)*width)/2 - 0.5;
-	
-	float Area = triArea(fia,fib,fic,fja,fjb,fjc);
-	
-	for(int i = 0; i < width; i++) {
- 	  for(int j = 0; j< height; j++) {
-            float fi = ((i+1)*width)/2 -0.5;
-            float fj = ((j+1)*height)/2 - 0.5;
-            float alpha = triArea(fi,fib,fic,fj,fjb,fjc)/Area;
-	    float beta = triArea(fia,fi,fic,fja,fj,fjc)/Area;
-            float gamma = triArea(fia,fib,fi,fja,fjb,fj)/Area;
-            if(alpha >=0.0 && alpha <= 1.0 && beta >= 0.0 && beta <= 1.0 && gamma >= 0.0 && gamma <= 1) {
-              data[i+j*width] = Make_Pixel(255,255,255);
-            }
-          } 
-	}
 }
 /**
  * Start specifying the vertices for a group of primitives,
@@ -141,7 +146,7 @@ int size2 = ((vertexList.size()/4)*4);
 			t.C = vertexList[i+2];
 			triangles.push_back(t);
 		} 
-		}else if (MGLmode == MGL_QUADS) {
+	} else if (MGLmode == MGL_QUADS) {
 			for(int i = 0; i < size2; i+=4) {
 				Triangle t1;
 				Triangle t2;
@@ -157,7 +162,7 @@ int size2 = ((vertexList.size()/4)*4);
 		
 	}
 	
-	triangles.clear();
+	vertexList.clear();
 }
 
 /**
@@ -173,6 +178,7 @@ void mglVertex2(MGLfloat x,
 	vertex.position[0] = x;
 	vertex.position[1] = y;
 	vertex.position[2] = 0;
+        vertex.position[3] = 1;
 	vertex.color = color;
 	vertex.position = projection * vertex.position;
 	vertexList.push_back(vertex);
@@ -201,6 +207,7 @@ void mglVertex3(MGLfloat x,
  */
 void mglMatrixMode(MGLmatrix_mode mode)
 {
+//  currentMatrixMode = mode;
 }
 
 /**
@@ -301,6 +308,17 @@ void mglFrustum(MGLfloat left,
                 MGLfloat near,
                 MGLfloat far)
 {
+
+  float A = (right + left)/(right - left);
+  float B = (top + bottom)/(top - bottom);
+  float C = -(far + near)/(far-near);
+  float D = -(2*far*near)/(far-near);
+
+  float a = (2*near)/(right-left);
+  float b = (2*near)/(top-bottom);
+
+  projection = {{ a,0.0f,0.0f,0.0f,0.0f,b,0.0f,0.0f,A,B,C,-1.0f,0.0f,0.0f,D,0.0f}};
+
 }
 
 /**
@@ -314,11 +332,13 @@ void mglOrtho(MGLfloat left,
               MGLfloat near,
               MGLfloat far)
 {
-  float tx = -right + left*right - left;
-  float ty = -top + bottom*top - bottom;
-  float tz = -far + near*far - near;
-  
-  projection ={{tx,ty,tz}};
+  float tx = -(right+left)/(right-left);
+  float ty = -(top+bottom)/(top-bottom);
+  float tz = -(far+near)/(far-near);
+  float a = (2/(right-left));
+  float b = (2/(top-bottom));
+  float c = -(2/(far-near));
+  projection = {{a,0.0f,0.0f,0.0f,0.0f,b,0.0f,0.0f,0.0f,0.0f,c,0.0f,tx,ty,tz,1.0f}};
 }
 
 /**
